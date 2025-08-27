@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Jogo da Memória</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    h1 {
+      margin: 20px;
+      color: #fff;
+      text-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .info {
+      margin: 10px;
+      font-size: 18px;
+      color: #fff;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 16px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+
+    .game-board {
+      display: grid;
+      gap: 12px;
+      justify-content: center;
+      margin: 20px auto;
+      perspective: 1000px;
+    }
+
+    .card {
+      width: 80px;
+      height: 100px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+      cursor: pointer;
+    }
+
+    .card.flip {
+      transform: rotateY(180deg);
+    }
+
+    .front, .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: bold;
+    }
+
+    .front {
+      background: #fff;
+      color: #333;
+      transform: rotateY(180deg);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .back {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .matched .front {
+      background: #2ecc71;
+      color: white;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+    }
+
+    .controls {
+      margin: 15px;
+    }
+
+    button, select {
+      padding: 8px 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background: #34495e;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    button:hover, select:hover {
+      background: #2c3e50;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <h1>🃏 Jogo da Memória</h1>
+
+  <div class="controls">
+    <label for="level" style="color:white;">Nível: </label>
+    <select id="level">
+      <option value="1">Fácil (4x2)</option>
+      <option value="2">Médio (4x4)</option>
+      <option value="3">Difícil (6x4)</option>
+      <option value="4">Muito Difícil (6x6)</option>
+      <option value="5">Insano (8x6)</option>
+    </select>
+    <button onclick="startGame()">Iniciar</button>
+  </div>
+
+  <div class="info">
+    <span id="timer">Tempo: 0s</span> | 
+    <span id="status">Selecione um nível e inicie</span>
+  </div>
+
+  <div id="board" class="game-board"></div>
+
+  <script>
+    let board = document.getElementById("board");
+    let timerElement = document.getElementById("timer");
+    let statusElement = document.getElementById("status");
+    let levelSelect = document.getElementById("level");
+
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let matches = 0;
+    let totalPairs = 0;
+    let timer;
+    let timeLeft;
+
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    function startGame() {
+      clearInterval(timer);
+
+      let level = parseInt(levelSelect.value);
+      let rows, cols, time;
+
+      if (level === 1) { rows = 2; cols = 4; time = 30; }
+      else if (level === 2) { rows = 4; cols = 4; time = 60; }
+      else if (level === 3) { rows = 4; cols = 6; time = 90; }
+      else if (level === 4) { rows = 6; cols = 6; time = 120; }
+      else { rows = 6; cols = 8; time = 180; }
+
+      timeLeft = time;
+      timerElement.textContent = `Tempo: ${timeLeft}s`;
+      statusElement.textContent = "Boa sorte!";
+
+      totalPairs = (rows * cols) / 2;
+      matches = 0;
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+
+      // Preparar letras
+      let chosenLetters = letters.slice(0, totalPairs);
+      let gameLetters = [...chosenLetters, ...chosenLetters];
+      shuffle(gameLetters);
+
+      // Renderizar
+      board.innerHTML = "";
+      board.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      board.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+      gameLetters.forEach(letter => {
+        let card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.letter = letter;
+
+        let front = document.createElement("div");
+        front.classList.add("front");
+        front.textContent = letter;
+
+        let back = document.createElement("div");
+        back.classList.add("back");
+        back.textContent = "?";
+
+        card.appendChild(front);
+        card.appendChild(back);
+
+        card.addEventListener("click", flipCard);
+        board.appendChild(card);
+      });
+
+      // Timer
+      timer = setInterval(() => {
+        timeLeft--;
+        timerElement.textContent = `Tempo: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          statusElement.textContent = "⏰ Tempo esgotado! Você perdeu!";
+          lockBoard = true;
+        }
+      }, 1000);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function flipCard() {
+      if (lockBoard) return;
+      if (this.classList.contains("flip")) return;
+
+      this.classList.add("flip");
+
+      if (!firstCard) {
+        firstCard = this;
+        return;
+      }
+
+      secondCard = this;
+      lockBoard = true;
+
+      checkMatch();
+    }
+
+    function checkMatch() {
+      let isMatch = firstCard.dataset.letter === secondCard.dataset.letter;
+
+      if (isMatch) {
+        firstCard.classList.add("matched");
+        secondCard.classList.add("matched");
+        matches++;
+        if (matches === totalPairs) {
+          clearInterval(timer);
+          statusElement.textContent = "🎉 Parabéns, você venceu!";
+        }
+        resetBoard();
+      } else {
+        setTimeout(() => {
+          firstCard.classList.remove("flip");
+          secondCard.classList.remove("flip");
+          resetBoard();
+        }, 1000);
+      }
+    }
+
+    function resetBoard() {
+      [firstCard, secondCard] = [null, null];
+      lockBoard = false;
+    }
+  </script>
+</body>
+</html>
