@@ -168,12 +168,10 @@
       secondCard = null;
       lockBoard = false;
 
-      // Preparar letras
       let chosenLetters = letters.slice(0, totalPairs);
       let gameLetters = [...chosenLetters, ...chosenLetters];
       shuffle(gameLetters);
 
-      // Renderizar
       board.innerHTML = "";
       board.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
       board.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
@@ -198,7 +196,6 @@
         board.appendChild(card);
       });
 
-      // Timer
       timer = setInterval(() => {
         timeLeft--;
         timerElement.textContent = `Tempo: ${timeLeft}s`;
